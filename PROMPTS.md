@@ -30,12 +30,15 @@ No code was written by the human author.
 15. Smoke-tested full forward+backward in BOTH train and test modes before the long run (model 13.08 M params, gradients verified).
 
 ## Phase 4 — Training & evaluation
-16. Train on 7 auxiliary VisA categories (batch 8, 6 epochs), validate each epoch on the 5 held-out categories.
-17. Final test on the 5 held-out categories -> AUROC (image + pixel).
+16. Trained on 7 auxiliary VisA categories (1,210 images, batch 8, 6 epochs, ~8 min/epoch on 8GB).
+    val pixel-AP on held-out: 0.0885 -> 0.1146 -> 0.1172 (loss_cls 0.706 -> 0.650, KL 51.9 -> 38.5).
+17. Final test on the 5 held-out categories (checkpoint epoch 6, MC sample_num=10):
+    pixel AUROC 92.94% (macro-mean), image AUROC 64.80%.
+    per-category image/pixel AUROC: pcb1 43.5/96.2, pcb2 55.0/90.5, pcb3 47.4/89.1, pcb4 82.1/93.4, pipe_fryum 96.1/95.6.
 
 ## Phase 5 — Report & delivery
-18. Wrote this English report (REPORT.md) with the 6 required sections.
-19. Publish code to GitHub (repo created via gh CLI, authenticated as R1dicul3).
+18. Wrote the English report (REPORT.md) with the 6 required sections.
+19. Published code to GitHub: https://github.com/R1dicul3/cisc3024-ai-assignment2 (created via gh CLI, authenticated as R1dicul3).
 
 ---
 *Key commands / scripts (all AI-generated): tools/find_candidates.py (arXiv+GitHub search), tools/prep_visa.py (data), tools/smoke_forward.py (correctness smoke), tools/run_train.ps1 (training).*

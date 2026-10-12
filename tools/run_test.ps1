@@ -1,0 +1,6 @@
+$env:PYTHONIOENCODING = "utf-8"
+$env:NO_ALBUMENTATIONS_UPDATE = "1"
+Set-Location "C:\Users\31514\Desktop\3024\Bayes-PFL"
+$py = "C:\Users\31514\AppData\Local\Programs\Python\Python313\python.exe"
+& $py -u test.py --dataset visa --data_path ./dataset/mvisa/data --save_path ./results/test_visa_vitb --pretrained_path ./pretrained_weight/ViT-B-16.pt --config_path ./open_clip_local/model_configs/ViT-B-16.json --features_list 3 6 9 12 --image_size 224 --prompt_context_len 5 --prompt_num 3 --prompt_state_len 5 --sample_num 10 --num_flows 10 --seed 333 --device_id 0 --product_list pcb1 pcb2 pcb3 pcb4 pipe_fryum --checkpoint_path ./my_exps/train_visa_vitb/epoch_post_6_1.pth *> "C:\Users\31514\Desktop\3024\logs\test.log"
+Write-Output "TEST_EXIT=$LASTEXITCODE"

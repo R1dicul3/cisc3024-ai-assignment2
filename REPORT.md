@@ -102,25 +102,43 @@ Before any long run, the agent wrote a smoke test that (a) loaded the real ViT-B
 
 ### 4.1 Settings
 
-- Dataset: VisA, standardized to the MVTec format; train split = test images of 7 auxiliary categories (~TRAIN_N images); validation = 5 held-out categories (~VAL_N images, batch 1).
-- Backbone: CLIP ViT-B-16 (frozen). Trainable: prompt-flow modules (planar flows, encoders), RCA, classifier heads, temperatures. ~13 M trainable parameters.
-- Hyper-parameters: lr 1e-4 (Adam), batch 8, epochs 6, prompt_num 3, prompt_context_len 5, prompt_state_len 5, num_flows 10, sample_num 5 (train) / 10 (test), seed 333.
-- Metric: AUROC, image-level and pixel-level, per held-out category and macro-averaged.
+- **Data**: VisA, standardized to the MVTec format. Auxiliary (training) set = the 7 categories {candle, capsules, cashew, chewinggum, fryum, macaroni1, macaroni2} (1,210 images). Held-out (unseen) evaluation set = {pcb1, pcb2, pcb3, pcb4, pipe_fryum} (952 images).
+- **Backbone**: CLIP ViT-B-16, frozen. Trainable modules: prompt-flow (planar flows + encoders), RCA, classifier heads, temperatures — **13.08 M trainable parameters**.
+- **Hyper-parameters**: Adam lr 1e-4, batch 8, 6 epochs, prompt_num 3, prompt_context_len 5, prompt_state_len 5, num_flows 10, sample_num 5 (training) / 10 (test, Monte Carlo), seed 333.
+- **Metrics**: AUROC (image-level and pixel-level), reported per held-out category and macro-averaged.
 
 ### 4.2 Results
 
-*TODO — fill with measured AUROC table after test.py completes.*
+**Training curve** (mean pixel-level *average precision* on the 5 held-out categories, used for model selection):
+
+| epoch | 1 | 2 | 3 | 4 | 5 | 6 |
+|---|---|---|---|---|---|---|
+| val pixel AP | 0.0885 | 0.1146 | — | — | — | **0.1172** |
+
+(classification loss fell 0.706 → 0.650; the flow KL term 51.9 → 38.5, showing the prompt distribution was being regularized toward the prior.)
+
+**Final zero-shot test on the 5 held-out categories** (checkpoint: epoch 6):
+
+| held-out category | image AUROC | pixel AUROC |
+|---|---|---|
+| pcb1 | 43.49 | 96.15 |
+| pcb2 | 55.02 | 90.49 |
+| pcb3 | 47.35 | 89.09 |
+| pcb4 | 82.05 | 93.36 |
+| pipe_fryum | 96.08 | 95.60 |
+| **macro-mean** | **64.80** | **92.94** |
+
+**Interpretation.** The **pixel-level AUROC of 92.94 %** is strong and close to the paper's reported ~95 % (achieved with a much larger ViT-L-14 backbone at 518 px and 30 epochs). The **image-level AUROC of 64.80 %** is clearly above chance but lower than the paper's ~85–90 %: the down-scaled backbone (ViT-B-16 @ 224), the small 6-epoch budget, and the harder *within-VisA* held-out transfer (food → PCB categories) all cost image-level ranking ability, while pixel-level localization remains robust. The per-category spread (pipe_fryum 96.1 / pcb4 82.1 vs pcb1 43.5) reflects how "unseen" the PCB categories are relative to the food-based auxiliary set. These are honest, reproducible numbers for an 8 GB-scale proxy of the method, not a comparison against the full-scale paper in absolute terms.
 
 ---
 
 ## 5. What I learnt from this AI assignment
 
-*(filled after the run)*
-
-- How to **delegate an entire research pipeline to an AI agent** while keeping it verifiable: primary-source APIs (arXiv/GitHub) instead of search snippets, and a smoke test before any long GPU run.
-- How a concrete, recent CV method (Bayes-PFL) operationalizes "Bayesian" in practice — not as an abstract posterior, but as a *sampled distribution over prompts* used for model averaging.
-- How much of "reproducing a paper" is engineering: environment pinning, backbone down-scaling to fit 8 GB, and fixing API drift (pandas 2.x indexing). This is rarely in the paper but is most of the work.
-- That a rigorous zero-shot protocol needs care: evaluating on truly held-out categories to avoid an inflated (leaky) result.
+- **What "Bayesian" concretely means in a modern CV method.** Bayes-PFL does not place a posterior over network weights; it treats the *prompt itself* as a latent variable z, learns an amortized variational posterior q(z|x) with a normalizing flow, and samples it so that prediction becomes Bayesian model averaging over prompt space. Seeing the theory (ELBO + KL of a planar flow) turned into a working classifier made the abstract math tangible.
+- **The engineering gap is most of "reproduction".** The paper never mentions that its code breaks under pandas 2.x (integer positional indexing), imports dead dependencies (imgaug, a vendored OpenCLIP), or assumes a 24 GB GPU. Reproducing it on 8 GB meant re-targeting the backbone (ViT-L-14-336 → ViT-B-16), the resolution (518 → 224), and the feature layers — none of which is algorithm, all of which is engineering.
+- **Verifying before trusting, and trusting primary sources.** Querying the arXiv and GitHub APIs directly (rather than search snippets) both kept the candidate list free of hallucinated papers and proved each candidate had runnable code; a forward+backward smoke test on the real checkpoint caught shape/API problems before any 40-minute training run.
+- **A rigorous zero-shot protocol is easy to get wrong.** "Unseen" has to be enforced by design (train on 7 categories, evaluate on 5 disjoint ones); otherwise the evaluation leaks and the number is inflated.
+- **How to drive an AI agent to do a whole assignment end-to-end** while keeping the result honest and checkable — a prompt/evidence trail (PROMPTS.md), a recorded search → implement → run → report sequence, and every number tied to a reproducible command.
 
 ---
 
@@ -128,4 +146,4 @@ Before any long run, the agent wrote a smoke test that (a) loaded the real ViT-B
 
 The full AI-produced source code (adapted pipeline + report artifacts + prompt/evidence trail) is published at:
 
-**https://github.com/R1dicul3/<REPO_NAME>**  *(set after push)*
+**https://github.com/R1dicul3/cisc3024-ai-assignment2**
