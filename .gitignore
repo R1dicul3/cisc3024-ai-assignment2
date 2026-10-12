@@ -1,0 +1,23 @@
+# data & weights (large, not committed)
+Bayes-PFL/pretrained_weight/
+Bayes-PFL/dataset/mvisa/data/
+Bayes-PFL/my_exps/
+Bayes-PFL/results/
+Bayes-PFL/.venv/
+data/
+
+# large figures + course material + temp probes
+Bayes-PFL/figures/
+AIassign2.pdf
+_download.py
+_probe.py
+
+# logs & caches
+logs/
+__pycache__/
+*.pyc
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

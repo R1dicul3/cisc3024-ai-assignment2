@@ -1,0 +1,6 @@
+$env:PYTHONIOENCODING = "utf-8"
+$env:NO_ALBUMENTATIONS_UPDATE = "1"
+Set-Location "C:\Users\31514\Desktop\3024\Bayes-PFL"
+$py = "C:\Users\31514\AppData\Local\Programs\Python\Python313\python.exe"
+& $py -u train.py --dataset visa --pretrained_path ./pretrained_weight/ViT-B-16.pt --config_path ./open_clip_local/model_configs/ViT-B-16.json --features_list 3 6 9 12 --image_size 224 --batch_size 8 --epochs 6 --prompt_context_len 5 --prompt_num 3 --prompt_state_len 5 --sample_num 5 --num_flows 10 --learning_rate 0.0001 --device_id 0 --seed 333 --alpha 0.6 --save_path ./my_exps/train_visa_vitb --train_data_path ./dataset/mvisa/data --val_data_path ./dataset/mvisa/data *> "C:\Users\31514\Desktop\3024\logs\train.log"
+Write-Output "TRAIN_EXIT=$LASTEXITCODE"
