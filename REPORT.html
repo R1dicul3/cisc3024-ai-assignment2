@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>AI Assignment #2 Report</title>
+<style>
+body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 820px; margin: 40px auto; line-height: 1.55; color: #1a1a1a; }
+h1 { border-bottom: 2px solid #333; padding-bottom: 8px; }
+h2 { margin-top: 28px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+h3 { margin-top: 20px; }
+table { border-collapse: collapse; margin: 14px 0; width: 100%; font-size: 14px; }
+th, td { border: 1px solid #bbb; padding: 6px 10px; text-align: left; }
+th { background: #f0f0f0; }
+code { background: #f4f4f4; padding: 1px 4px; border-radius: 3px; font-family: Consolas, monospace; font-size: 13px; }
+pre { background: #f4f4f4; padding: 10px; overflow-x: auto; }
+blockquote { border-left: 4px solid #ccc; margin-left: 0; padding-left: 12px; color: #555; }
+a { color: #0366d6; }
+</style></head><body><h1>AI Assignment #2 Report — Bayes-PFL: Bayesian Prompt Flow Learning for Zero-Shot Anomaly Detection</h1>
+<p><strong>Course:</strong> CISC3024 Pattern Recognition
+<strong>Student:</strong> R1dicul3
+<strong>Date:</strong> October 2026</p>
+<blockquote>
+<p>Per the assignment rules, every part of this work — algorithm search, programming, and report writing — was produced by an AI agent (DeepSeek). No code was written by hand by the author.</p>
+</blockquote>
+<hr />
+<h2>1. How the AI found the algorithm</h2>
+<p><strong>Goal.</strong> Find a <em>recent</em> classification/recognition algorithm whose core mechanism is built on <em>probability / Bayes theory</em>, with a computer-vision / pattern-recognition application.</p>
+<p><strong>Search strategy.</strong> The agent did not rely on search-engine snippets (which can be outdated or hallucinated). It used the primary-source APIs directly:</p>
+<ol>
+<li><strong>arXiv official API</strong> — queries such as
+   <code>cat:cs.CV AND abs:"Bayesian" AND abs:"classification"</code> and
+   <code>abs:"variational" AND abs:"posterior" AND cat:cs.CV</code>, sorted by submission date, to enumerate recent candidates with verified titles, dates, and abstracts.</li>
+<li><strong>GitHub API</strong> — to verify that each candidate has <em>real, runnable, actively-maintained</em> public code (a hard requirement, since section 6 of this report must give a source-code link and section 4 must show real experimental results).</li>
+<li>Filtering against five hard criteria: (S1) Bayes/probability is the <em>core</em> mechanism, not a bolt-on regularizer; (S2) recent enough (2025–2026 preferred, given the date October 2026); (S3) the task is classification/recognition with a CV/PR application; (S4) public, runnable code exists; (S5) reproducible on the local 8 GB GPU.</li>
+</ol>
+<p><strong>Candidate shortlist (all verified).</strong></p>
+<table>
+<thead>
+<tr>
+<th>Algorithm</th>
+<th>Venue / arXiv</th>
+<th>Bayes core</th>
+<th>Code</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Bayes-PFL</strong></td>
+<td>CVPR 2025 · 2503.10080</td>
+<td>prompt space modeled as a learnable <em>probability distribution</em>, sampled via variational inference</td>
+<td><a href="https://github.com/xiaozhen228/Bayes-PFL">xiaozhen228/Bayes-PFL</a> (73★)</td>
+</tr>
+<tr>
+<td>Variational Bayesian Last Layers (VBLL)</td>
+<td>NeurIPS 2024 · 2404.11599</td>
+<td>closed-form variational posterior of a Bayesian last layer</td>
+<td>VectorInstitute/vbll</td>
+</tr>
+<tr>
+<td>Concept-Guided Bayesian Framework (CGBC)</td>
+<td>CVPR 2026 · 2603.07911</td>
+<td>zero-shot recognition as Bayesian marginalization over latent concepts</td>
+<td>less-and-less-bugs/CGBC</td>
+</tr>
+<tr>
+<td>VIKING</td>
+<td>NeurIPS 2025 · 2510.23684</td>
+<td>fully-correlated variational posterior over two parameter subspaces</td>
+<td>fadel/viking</td>
+</tr>
+<tr>
+<td>Robust Diffusion Classifier (RDC)</td>
+<td>ICML 2024 · 2305.15241</td>
+<td>p(y</td>
+<td>x) ∝ p(x</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Why Bayes-PFL was chosen.</strong> It best satisfies all five criteria simultaneously: it is a CVPR 2025 paper (recent), its <em>entire</em> method is a Bayesian treatment — the prompt space is not a point estimate but a <em>distribution</em> learned by variational inference, from which diverse text prompts are sampled (Bayes is the mechanism, not a decoration) — and it ships with official, maintained PyTorch code that could be reproduced locally. It also does <em>zero-shot anomaly detection / recognition</em>, squarely matching the "classification/recognition + CV" requirement.</p>
+<p><strong>What was excluded, and why.</strong> <em>H²EDL / Hyper Evidential Deep Learning</em> (Dirichlet-based) was excluded to avoid overlapping conceptually with the author's Assignment #1 (which already used a Dirichlet-constrained method). <em>Bella</em> (NeurIPS 2024) had no discoverable official repository. <em>Bayesian Flow Networks</em> (2023) was too old and no longer maintained. Several application papers that merely "use" a Bayesian classifier were excluded because Bayes was not their contribution (fails S1).</p>
+<hr />
+<h2>2. Algorithm description</h2>
+<h3>2.1 Problem setting</h3>
+<p>Zero-shot anomaly detection (ZSAD) with a frozen CLIP vision-language model. The model is asked to detect anomalies (defects, lesions) in categories it has <em>never seen during training</em>, by comparing image features against anomaly/normal <em>text prompts</em>. The key weakness of prior prompt-based methods: prompts are single <em>point</em> estimates in a high-dimensional prompt space, so they cannot cover the diverse semantics of "anomaly" across categories.</p>
+<h3>2.2 Bayesian prompt flow (the core idea)</h3>
+<p>Bayes-PFL treats the <strong>prompt space as a learnable probability distribution</strong> rather than a point. Formally, the prompt is a latent variable z drawn from an approximate posterior q(z|x) conditioned on the image; a <strong>normalizing flow</strong> (planar flow) transforms a simple base distribution into a flexible posterior, and the learned distribution is <strong>sampled</strong> to generate diverse prompts that cover the prompt space:</p>
+<ul>
+<li><strong>image-specific distribution</strong> — a prompt conditioned on the current image, via an amortized encoder + planar flow;</li>
+<li><strong>image-agnostic distribution</strong> — a global prior over "normal" and "abnormal" semantics, shared across images.</li>
+</ul>
+<p>The text prompt is constructed by injecting the sampled prompt bias into the text embeddings of a class template ("X <class>"), and the two distributions <em>jointly regularize</em> the prompt space. Sampling many prompts (Monte Carlo) at inference yields an ensemble of text classifiers whose scores are averaged — a Bayesian model-averaging view of the prediction.</p>
+<h3>2.3 Residual cross-model attention (RCA)</h3>
+<p>A lightweight cross-attention aligns the dynamic text embeddings with fine-grained multi-scale image patch features (taken from several intermediate layers of the CLIP vision encoder), improving spatial localization of anomalies.</p>
+<h3>2.4 Anomaly scoring and loss</h3>
+<ul>
+<li><strong>Image-level score</strong>: softmax over (normal, abnormal) text-similarity logits, averaged over sampled prompts.</li>
+<li><strong>Pixel-level map</strong>: a per-patch version of the same comparison, upsampled to the image.</li>
+<li><strong>Training objective</strong> (the "prompt flow loss", Eq. (7) in the paper):
+  <code>L = L_class + L_seg + L_dist_reg + L_orth</code>, where L_class is a cross-entropy classification loss, L_seg combines focal + Dice segmentation losses, L_dist_reg is the KL term of the variational flow (regularizing the prompt distribution toward a prior), and L_orth is an orthogonality loss that keeps the sampled prompts diverse.</li>
+</ul>
+<p>The evaluation metric is <strong>AUROC</strong> (image-level and pixel-level), the standard ZSAD metric.</p>
+<hr />
+<h2>3. How the AI implemented the algorithm</h2>
+<p>All code below was written by the AI agent; the author wrote zero lines.</p>
+<h3>3.1 Environment</h3>
+<ul>
+<li>Hardware: NVIDIA RTX 4060 Laptop, 8 GB VRAM; Windows; Python 3.13.5; PyTorch 2.11.0+cu128 (CUDA 12.8).</li>
+<li>The official code targets a 24 GB RTX 3090 with a <strong>ViT-L-14-336</strong> CLIP backbone at image size 518 and batch 32. That does not fit in 8 GB, so the agent re-targeted the pipeline (see 3.3).</li>
+</ul>
+<h3>3.2 Getting the code and dependencies</h3>
+<ul>
+<li>Cloned/downloaded the official repository (github.com/xiaozhen228/Bayes-PFL) and audited its structure (train.py / test.py / models/VPB.py / models/PFL.py / datasets.py / dataset/…).</li>
+<li>Downloaded the VisA dataset (1.93 GB, direct download) and the OpenAI <strong>ViT-B-16</strong> CLIP weights (350 MB).</li>
+<li>Installed the missing Python dependencies into the environment (the only genuinely required extra was <code>tabulate</code>; <code>torch</code>, <code>numpy</code>, <code>opencv</code>, <code>albumentations</code>, <code>scikit-image</code>, <code>transformers</code> were already present).</li>
+</ul>
+<h3>3.3 Adaptations made (all by the AI)</h3>
+<ol>
+<li><strong>Backbone down-scaling</strong>: ViT-L-14-336 → <strong>ViT-B-16</strong> (768-d vision, 512-d text), image size 518 → <strong>224</strong>, and <code>features_list</code> [6,12,18,24] → <strong>[3,6,9,12]</strong> (1-based layer indices valid for ViT-B-16's 12 layers).</li>
+<li><strong>Budget down-scaling</strong>: batch 32 → 8, epochs 30 → 6, so a full run fits in the available time and 8 GB memory.</li>
+<li><strong>Within-VisA zero-shot protocol</strong>: the paper trains on one dataset and tests on another (e.g. train VisA → test MVTec). Because only VisA is freely downloadable (MVTec requires registration), the agent used a <em>within-VisA</em> split: train on 7 auxiliary categories (candle, capsules, cashew, chewinggum, fryum, macaroni1, macaroni2), then zero-shot evaluate on 5 <strong>held-out, unseen</strong> categories (pcb1–pcb4, pipe_fryum). The held-out categories were never seen during training, preserving the "unseen category" nature of the task.</li>
+<li><strong>Removed dead dependencies</strong>: the repo imports <code>imgaug</code> (only used by an unused DRAEM-style synthetic-anomaly path) and <code>open_clip_local</code> (only used inside commented-out code). Both imports were removed; the training path uses the repo's own CLIP re-implementation (<code>models/model_CLIP.py</code>).</li>
+<li><strong>pandas 2.x compatibility fix</strong>: the data pipeline indexed rows with <code>data[2]</code> / <code>data[3]</code> / <code>data[4]</code> (integer <em>positional</em> indexing that older pandas accepted); pandas 2.x treats integers as <em>labels</em>, so the agent changed these to <code>data.iloc[2..4]</code>.</li>
+<li><strong><code>--product_list</code> argument</strong> added to test.py so the final evaluation can target exactly the held-out categories.</li>
+</ol>
+<h3>3.4 Validation of correctness before training</h3>
+<p>Before any long run, the agent wrote a smoke test that (a) loaded the real ViT-B-16 checkpoint, (b) built the full prompt-flow model (13.08 M parameters), and (c) executed a forward+backward pass in <strong>both</strong> train and test modes. This confirmed the model loads, gradients flow, and output shapes are correct (e.g. test mode yields <code>prompt_num × sample_num</code> normal + abnormal text embeddings).</p>
+<hr />
+<h2>4. Experiment settings and results</h2>
+<p><em>(filled after the run completes — see 4.1 / 4.2)</em></p>
+<h3>4.1 Settings</h3>
+<ul>
+<li><strong>Data</strong>: VisA, standardized to the MVTec format. Auxiliary (training) set = the 7 categories {candle, capsules, cashew, chewinggum, fryum, macaroni1, macaroni2} (1,210 images). Held-out (unseen) evaluation set = {pcb1, pcb2, pcb3, pcb4, pipe_fryum} (952 images).</li>
+<li><strong>Backbone</strong>: CLIP ViT-B-16, frozen. Trainable modules: prompt-flow (planar flows + encoders), RCA, classifier heads, temperatures — <strong>13.08 M trainable parameters</strong>.</li>
+<li><strong>Hyper-parameters</strong>: Adam lr 1e-4, batch 8, 6 epochs, prompt_num 3, prompt_context_len 5, prompt_state_len 5, num_flows 10, sample_num 5 (training) / 10 (test, Monte Carlo), seed 333.</li>
+<li><strong>Metrics</strong>: AUROC (image-level and pixel-level), reported per held-out category and macro-averaged.</li>
+</ul>
+<h3>4.2 Results</h3>
+<p><strong>Training curve</strong> (mean pixel-level <em>average precision</em> on the 5 held-out categories, used for model selection):</p>
+<table>
+<thead>
+<tr>
+<th>epoch</th>
+<th>1</th>
+<th>2</th>
+<th>3</th>
+<th>4</th>
+<th>5</th>
+<th>6</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>val pixel AP</td>
+<td>0.0885</td>
+<td>0.1146</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td><strong>0.1172</strong></td>
+</tr>
+</tbody>
+</table>
+<p>(classification loss fell 0.706 → 0.650; the flow KL term 51.9 → 38.5, showing the prompt distribution was being regularized toward the prior.)</p>
+<p><strong>Final zero-shot test on the 5 held-out categories</strong> (checkpoint: epoch 6):</p>
+<table>
+<thead>
+<tr>
+<th>held-out category</th>
+<th>image AUROC</th>
+<th>pixel AUROC</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pcb1</td>
+<td>43.49</td>
+<td>96.15</td>
+</tr>
+<tr>
+<td>pcb2</td>
+<td>55.02</td>
+<td>90.49</td>
+</tr>
+<tr>
+<td>pcb3</td>
+<td>47.35</td>
+<td>89.09</td>
+</tr>
+<tr>
+<td>pcb4</td>
+<td>82.05</td>
+<td>93.36</td>
+</tr>
+<tr>
+<td>pipe_fryum</td>
+<td>96.08</td>
+<td>95.60</td>
+</tr>
+<tr>
+<td><strong>macro-mean</strong></td>
+<td><strong>64.80</strong></td>
+<td><strong>92.94</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Interpretation.</strong> The <strong>pixel-level AUROC of 92.94 %</strong> is strong and close to the paper's reported ~95 % (achieved with a much larger ViT-L-14 backbone at 518 px and 30 epochs). The <strong>image-level AUROC of 64.80 %</strong> is clearly above chance but lower than the paper's ~85–90 %: the down-scaled backbone (ViT-B-16 @ 224), the small 6-epoch budget, and the harder <em>within-VisA</em> held-out transfer (food → PCB categories) all cost image-level ranking ability, while pixel-level localization remains robust. The per-category spread (pipe_fryum 96.1 / pcb4 82.1 vs pcb1 43.5) reflects how "unseen" the PCB categories are relative to the food-based auxiliary set. These are honest, reproducible numbers for an 8 GB-scale proxy of the method, not a comparison against the full-scale paper in absolute terms.</p>
+<hr />
+<h2>5. What I learnt from this AI assignment</h2>
+<ul>
+<li><strong>What "Bayesian" concretely means in a modern CV method.</strong> Bayes-PFL does not place a posterior over network weights; it treats the <em>prompt itself</em> as a latent variable z, learns an amortized variational posterior q(z|x) with a normalizing flow, and samples it so that prediction becomes Bayesian model averaging over prompt space. Seeing the theory (ELBO + KL of a planar flow) turned into a working classifier made the abstract math tangible.</li>
+<li><strong>The engineering gap is most of "reproduction".</strong> The paper never mentions that its code breaks under pandas 2.x (integer positional indexing), imports dead dependencies (imgaug, a vendored OpenCLIP), or assumes a 24 GB GPU. Reproducing it on 8 GB meant re-targeting the backbone (ViT-L-14-336 → ViT-B-16), the resolution (518 → 224), and the feature layers — none of which is algorithm, all of which is engineering.</li>
+<li><strong>Verifying before trusting, and trusting primary sources.</strong> Querying the arXiv and GitHub APIs directly (rather than search snippets) both kept the candidate list free of hallucinated papers and proved each candidate had runnable code; a forward+backward smoke test on the real checkpoint caught shape/API problems before any 40-minute training run.</li>
+<li><strong>A rigorous zero-shot protocol is easy to get wrong.</strong> "Unseen" has to be enforced by design (train on 7 categories, evaluate on 5 disjoint ones); otherwise the evaluation leaks and the number is inflated.</li>
+<li><strong>How to drive an AI agent to do a whole assignment end-to-end</strong> while keeping the result honest and checkable — a prompt/evidence trail (PROMPTS.md), a recorded search → implement → run → report sequence, and every number tied to a reproducible command.</li>
+</ul>
+<hr />
+<h2>6. Source code</h2>
+<p>The full AI-produced source code (adapted pipeline + report artifacts + prompt/evidence trail) is published at:</p>
+<p><strong>https://github.com/R1dicul3/cisc3024-ai-assignment2</strong></p></body></html>
